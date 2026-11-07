@@ -12,7 +12,7 @@ import time
 import torch
 import torch.nn as nn
 
-from utils import Logger, load_checkpoint, save_checkpoint, set_seed
+from utils.logger import Logger, load_checkpoint, save_checkpoint, set_seed
 
 
 def tiny_G(nz=100):  # 100 -> 3x32x32
