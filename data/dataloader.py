@@ -14,7 +14,7 @@ Fashion-MNIST: dùng để sanity check nhanh -> lưu tại ./data/FashionMNIST
 Hàm to_01() / denormalize() chuyển về [0, 1] để lưu ảnh, tính FID hoặc dùng BCE loss.
 
 Ví dụ:
-    from dataloader import get_dataloaders, denormalize
+    from data.dataloader import get_dataloaders, denormalize
     train_dl, val_dl, test_dl = get_dataloaders("celeba")              # CelebA 64x64
     train_dl, val_dl, test_dl = get_dataloaders("fashion_mnist")       # sanity check
     train_dl, _, _ = get_dataloaders("celeba", subset=2000)            # chạy thử nhanh
@@ -213,7 +213,7 @@ def _load_celeba_splits(root: str, tf_train, tf_eval):
     )
 
 
-def get_dataloaders(name="celeba", root="./data", image_size=64, batch_size=128,
+def get_dataloaders(name="celeba", root="./data/raw", image_size=64, batch_size=128,
                     num_workers=None, val_size=6000, seed=SEED, subset=None,
                     fmnist_rgb=True):
     """
@@ -248,7 +248,7 @@ def get_dataloaders(name="celeba", root="./data", image_size=64, batch_size=128,
             DataLoader(test, shuffle=False, **kw))
 
 
-def _verify_and_save_sample(ds_name: str, root: str = "./data", sample_dir: str = "./samples"):
+def _verify_and_save_sample(ds_name: str, root: str = "./data/raw", sample_dir: str = "./outputs/samples"):
     print("=" * 65)
     print(f"[*] Đang khởi tạo & kiểm tra DataLoader cho: '{ds_name}' (lưu tại {root})...")
     tr, va, te = get_dataloaders(ds_name, root=root)
@@ -269,6 +269,6 @@ if __name__ == "__main__":
 
     for ds in target_datasets:
         try:
-            _verify_and_save_sample(ds, root="./data")
+            _verify_and_save_sample(ds, root="./data/raw")
         except Exception as err:
             print(f"[!] Lỗi khi xử lý '{ds}': {err}")
