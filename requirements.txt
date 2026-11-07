@@ -26,3 +26,6 @@ gdown>=5.0.0
 # Generative Model Evaluation Metrics (FID, Inception Score)
 pytorch-fid>=0.3.0
 torchmetrics>=1.0.0
+
+#logging
+wandb
