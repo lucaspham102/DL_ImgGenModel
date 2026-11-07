@@ -19,9 +19,12 @@ weights/
 
 # Output images & logs
 sample_*.png
+samples/
 runs/
 logs/
 .tensorboard/
+wandb/
+
 
 # Virtual environments
 venv/
@@ -33,4 +36,5 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
 
