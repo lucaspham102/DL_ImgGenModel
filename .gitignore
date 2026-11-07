@@ -6,6 +6,7 @@ __pycache__/
 # Data & Large datasets
 data/celeba/
 data/FashionMNIST/
+data/raw/
 *.zip
 *.tar
 *.tar.gz
@@ -24,6 +25,8 @@ runs/
 logs/
 .tensorboard/
 wandb/
+outputs/*
+!outputs/.gitkeep
 
 
 # Virtual environments

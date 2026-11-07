@@ -97,30 +97,86 @@ save_image(denormalize(reconstructed[:64]), "epoch_1_sample.png", nrow=8)
 
 ---
 
+## 📈 Pipeline Đánh Giá (`utils/evaluation.py` & `evaluate.py`)
+
+Một pipeline đánh giá duy nhất dùng chung cho cả 3 mô hình (VAE, DCGAN, DDPM), gồm 3 nhóm chỉ số:
+
+1. **FID (Fréchet Inception Distance):** đo chất lượng và độ chân thực của ảnh sinh bằng cách so sánh phân phối đặc trưng 2048 chiều (InceptionV3) giữa ảnh thật và ảnh sinh. Dùng `FrechetInceptionDistance` của `torchmetrics` (yêu cầu `torch-fidelity`). FID càng thấp càng tốt.
+2. **Generation Speed:** đo thời gian sinh ảnh thực tế trên GPU, có bước warm-up và đồng bộ `torch.cuda.synchronize()` trước/sau khi đo. Kết quả gồm `total_time_sec`, `ms_per_image`, `image_per_sec`.
+3. **Diversity Score:** đánh giá độ đa dạng để phát hiện **Mode Collapse** qua 3 chỉ số:
+   - `pairwise_lpips`: khoảng cách cảm nhận trung bình theo cặp (LPIPS, backbone SqueezeNet).
+   - `pairwise_L2`: khoảng cách Euclid trung bình theo cặp trong không gian pixel.
+   - `pixel_std`: độ lệch chuẩn liên mẫu (inter-sample std) của pixel.
+
+   Các giá trị này càng cao thì ảnh sinh càng đa dạng.
+
+### Quy ước giao diện chung (Interface)
+
+Mỗi mô hình trong `models/` cần cung cấp hàm:
+
+```python
+def sample(num_samples: int, device) -> torch.Tensor:
+    ...  # trả về tensor (B, 3, 64, 64), miền [-1, 1] hoặc [0, 1]
+```
+
+Pipeline tự nhận diện và chuẩn hóa miền giá trị về `[0, 1]` trước khi tính các chỉ số.
+
+### Chạy kiểm tra nhanh (Sanity Check)
+
+```powershell
+python evaluate.py --dataset fashion_mnist --num-samples 64 --test-dummy
+```
+
+Kết quả được in ra màn hình và lưu tại `outputs/eval_<model>_<dataset>.json` (ví dụ `outputs/eval_dummy_ddpm_fashion_mnist.json`):
+
+```json
+{
+  "model": "dummy_ddpm",
+  "num_samples": 64,
+  "FID": 463.345,
+  "speed": {
+    "total_time_sec": 0.0007,
+    "ms_per_image": 0.011,
+    "image_per_sec": 87815.59
+  },
+  "diversity": {
+    "pairwise_L2": 45.2838,
+    "pixel_std": 0.2882,
+    "pairwise_lpips": 0.0908
+  }
+}
+```
+
+Các tùy chọn khác: `--model {vae,dcgan,ddpm}`, `--ckpt <path>`, `--batch-size`, `--no-fid`, `--no-lpips`.
+
+---
+
 ## 📁 Cấu Trúc Thư Mục Dự Án
 
 ```text
 DL_ImgGenModel/
 ├── configs/
 │   └── default.yaml           # File cấu hình hyperparameters chung (CelebA / Fashion-MNIST)
-├── data/                      # Thư mục dữ liệu & DataLoader (bỏ qua dữ liệu thô trong .gitignore)
-│   ├── celeba/                # CelebA, tự động chia sẵn train/ val/ test/
+├── data/                      # Dữ liệu & DataLoader (dữ liệu bị bỏ qua trong .gitignore)
+│   ├── celeba/                # CelebA đã chia sẵn: train/ val/ test/
 │   ├── FashionMNIST/          # Fashion-MNIST (torchvision tự tải)
 │   ├── __init__.py
-│   └── dataloader.py          # Module DataLoader dùng chung cho cả 3 mô hình (Thành viên 1)
+│   └── dataloader.py          # Module DataLoader dùng chung cho cả 3 mô hình
 ├── models/                    # Kiến trúc 3 mô hình sinh ảnh
 │   ├── __init__.py
-│   ├── vae.py                 # Mô hình Variational Autoencoder (Thành viên 1)
-│   ├── dcgan.py               # Mô hình Deep Convolutional GAN (Thành viên 2)
-│   └── ddpm.py                # Mô hình Denoising Diffusion Probabilistic Models nhỏ (Thành viên 3)
+│   ├── vae.py                 # Variational Autoencoder
+│   ├── dcgan.py               # Deep Convolutional GAN
+│   └── ddpm.py                # Denoising Diffusion Probabilistic Models nhỏ
 ├── utils/                     # Các module tiện ích và đánh giá dùng chung
 │   ├── __init__.py
-│   ├── logger.py              # Logging W&B / TensorBoard, lưu checkpoint & xuất lưới ảnh (Thành viên 2)
-│   └── evaluation.py          # Tính FID, đo tốc độ sinh ảnh và đánh giá độ đa dạng (Thành viên 3)
+│   ├── logger.py              # Logging W&B / TensorBoard, lưu checkpoint & xuất lưới ảnh
+│   └── evaluation.py          # Tính FID, đo tốc độ sinh ảnh và đánh giá độ đa dạng
 ├── checkpoints/               # Lưu trọng số mô hình đã huấn luyện (.pt / .pth)
-├── outputs/                   # Lưu lưới ảnh sinh mẫu và kết quả đánh giá
+├── outputs/                   # Ảnh sinh mẫu (samples/) và kết quả đánh giá (.json)
 ├── train.py                   # Script huấn luyện chính cho cả 3 mô hình
 ├── evaluate.py                # Script chạy pipeline đánh giá độc lập
+├── smoke_test.py              # Script kiểm tra nhanh luồng logging / huấn luyện
+├── LOGGING.md                 # Hướng dẫn logging (W&B / TensorBoard)
 ├── requirements.txt           # Danh sách các thư viện phụ thuộc
 ├── .gitignore                 # Bỏ qua data nặng, checkpoints, wandb, cache và file rác
 └── README.md                  # Tài liệu hướng dẫn dự án

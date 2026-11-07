@@ -3,29 +3,32 @@
 # ==============================================================================
 
 # Core Deep Learning & Computer Vision
-torch>=2.0.0
-torchvision>=0.15.0
+torch>=2.1.0
+torchvision>=0.16.0
 
 # Scientific Computing & Data Analysis
 numpy>=1.24.0
-scipy>=1.10.0
-pandas>=2.0.0
+scipy>=1.11.0
 
 # Image Processing & Visualization
-Pillow>=9.5.0
+Pillow>=10.0.0
 matplotlib>=3.7.0
 
-# Training Utilities & Experiment Logging
-tqdm>=4.65.0
-tensorboard>=2.13.0
+# Config & Training Utilities
+pyyaml>=6.0.1
+tqdm>=4.66.0
 
-# Dataset Download & Management (Kaggle & Google Drive)
-kagglehub>=0.2.0
-gdown>=5.0.0
+# Experiment Logging
+wandb>=0.16.0
+tensorboard>=2.15.0
 
-# Generative Model Evaluation Metrics (FID, Inception Score)
-pytorch-fid>=0.3.0
-torchmetrics>=1.0.0
+# Evaluation Metrics (FID bat buoc can torch-fidelity; LPIPS cho diversity)
+torchmetrics[image]>=1.2.0
+torch-fidelity>=0.3.0
+lpips>=0.1.4
 
-#logging
-wandb
+# Dataset Download (CelebA qua Kaggle trong data/dataloader.py)
+kagglehub
+
+#warning 
+warnings
