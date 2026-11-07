@@ -4,7 +4,8 @@ __pycache__/
 *$py.class
 
 # Data & Large datasets
-data/
+data/raw/*
+!data/raw/.gitkeep
 *.zip
 *.tar
 *.tar.gz

@@ -101,12 +101,27 @@ save_image(denormalize(reconstructed[:64]), "epoch_1_sample.png", nrow=8)
 
 ```text
 DL_ImgGenModel/
-├── data/                      # Thư mục chứa dữ liệu (tự động tạo, đã được bỏ qua trong .gitignore)
-│   ├── FashionMNIST/          # Dữ liệu Fashion-MNIST
-│   └── celeba/                # Dữ liệu ảnh CelebA (img_align_celeba/)
-├── dataloader.py              # Module DataLoader dùng chung cho cả 3 mô hình
+├── configs/
+│   └── default.yaml           # File cấu hình hyperparameters chung (CelebA / Fashion-MNIST)
+├── data/                      # Thư mục dữ liệu & DataLoader (bỏ qua dữ liệu thô trong .gitignore)
+│   ├── raw/                   # Chứa FashionMNIST/ và celeba/ (img_align_celeba/) tự động tải về
+│   ├── __init__.py
+│   └── dataloader.py          # Module DataLoader dùng chung cho cả 3 mô hình (Thành viên 1)
+├── models/                    # Kiến trúc 3 mô hình sinh ảnh
+│   ├── __init__.py
+│   ├── vae.py                 # Mô hình Variational Autoencoder (Thành viên 1)
+│   ├── dcgan.py               # Mô hình Deep Convolutional GAN (Thành viên 2)
+│   └── ddpm.py                # Mô hình Denoising Diffusion Probabilistic Models nhỏ (Thành viên 3)
+├── utils/                     # Các module tiện ích và đánh giá dùng chung
+│   ├── __init__.py
+│   ├── logger.py              # Logging W&B / TensorBoard, lưu checkpoint & xuất lưới ảnh (Thành viên 2)
+│   └── evaluation.py          # Tính FID, đo tốc độ sinh ảnh và đánh giá độ đa dạng (Thành viên 3)
+├── checkpoints/               # Lưu trọng số mô hình đã huấn luyện (.pt / .pth)
+├── outputs/                   # Lưu lưới ảnh sinh mẫu và kết quả đánh giá
+├── train.py                   # Script huấn luyện chính cho cả 3 mô hình
+├── evaluate.py                # Script chạy pipeline đánh giá độc lập
 ├── requirements.txt           # Danh sách các thư viện phụ thuộc
-├── .gitignore                 # Bỏ qua data nặng, checkpoints .pth, cache và file rác
+├── .gitignore                 # Bỏ qua data nặng, checkpoints, wandb, cache và file rác
 └── README.md                  # Tài liệu hướng dẫn dự án
 ```
 
