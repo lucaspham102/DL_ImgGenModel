@@ -197,7 +197,7 @@ def _load_celeba_splits(root: str, tf_train, tf_eval):
                     "-> CÁCH KHẮC PHỤC THỦ CÔNG:\n"
                     "1. Tải bộ CelebA từ Kaggle: https://www.kaggle.com/datasets/jessicali9530/celeba-dataset\n"
                     "2. Giải nén thư mục 'img_align_celeba' vào: ./data/celeba/img_align_celeba/\n"
-                    "3. Chạy lại `python dataloader.py` để code tự động chia vào train/val/test."
+                    "3. Chạy lại `python -m data.dataloader` để code tự động chia vào train/val/test."
                 ) from kg_err
 
     if raw_dir is None or all_imgs is None:
@@ -213,7 +213,7 @@ def _load_celeba_splits(root: str, tf_train, tf_eval):
     )
 
 
-def get_dataloaders(name="celeba", root="./data/raw", image_size=64, batch_size=128,
+def get_dataloaders(name="celeba", root="./data", image_size=64, batch_size=128,
                     num_workers=None, val_size=6000, seed=SEED, subset=None,
                     fmnist_rgb=True):
     """
@@ -248,7 +248,7 @@ def get_dataloaders(name="celeba", root="./data/raw", image_size=64, batch_size=
             DataLoader(test, shuffle=False, **kw))
 
 
-def _verify_and_save_sample(ds_name: str, root: str = "./data/raw", sample_dir: str = "./outputs/samples"):
+def _verify_and_save_sample(ds_name: str, root: str = "./data", sample_dir: str = "./outputs/samples"):
     print("=" * 65)
     print(f"[*] Đang khởi tạo & kiểm tra DataLoader cho: '{ds_name}' (lưu tại {root})...")
     tr, va, te = get_dataloaders(ds_name, root=root)
@@ -264,11 +264,11 @@ def _verify_and_save_sample(ds_name: str, root: str = "./data/raw", sample_dir: 
 
 
 if __name__ == "__main__":
-    # Chạy `python dataloader.py` không tham số sẽ tự động tải, chia tập và kiểm tra cả hai bộ dữ liệu
+    # Chạy `python -m data.dataloader` không tham số sẽ tự động tải, chia tập và kiểm tra cả hai bộ dữ liệu
     target_datasets = [sys.argv[1]] if len(sys.argv) > 1 else ["fashion_mnist", "celeba"]
 
     for ds in target_datasets:
         try:
-            _verify_and_save_sample(ds, root="./data/raw")
+            _verify_and_save_sample(ds, root="./data")
         except Exception as err:
             print(f"[!] Lỗi khi xử lý '{ds}': {err}")

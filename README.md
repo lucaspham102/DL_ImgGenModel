@@ -33,7 +33,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 ## 📊 Dữ Liệu & Quy Chuẩn Tiền Xử Lý (`dataloader.py`)
 
-Dự án thiết kế một pipeline nạp dữ liệu dùng chung duy nhất tại [`dataloader.py`](./dataloader.py) nhằm đảm bảo cả 3 thành viên khi xây dựng VAE, GAN, DDPM đều sử dụng chung một chuẩn dữ liệu đầu vào.
+Dự án thiết kế một pipeline nạp dữ liệu dùng chung duy nhất tại [`dataloader.py`](./data/dataloader.py) nhằm đảm bảo cả 3 thành viên khi xây dựng VAE, GAN, DDPM đều sử dụng chung một chuẩn dữ liệu đầu vào.
 
 ### 1. Các tập dữ liệu hỗ trợ:
 
@@ -61,20 +61,20 @@ Dự án thiết kế một pipeline nạp dữ liệu dùng chung duy nhất t�
 
 ```powershell
 # Chạy kiểm tra nhanh với Fashion-MNIST (Tải tự động 100% trong ~5s):
-python dataloader.py fashion_mnist
+python -m data.dataloader fashion_mnist
 
 # Chạy kiểm tra với CelebA:
-python dataloader.py celeba
+python -m data.dataloader celeba
 
 # Chạy kiểm tra cả hai bộ dữ liệu:
-python dataloader.py
+python -m data.dataloader
 ```
 *Sau khi chạy, chương trình sẽ lưu ảnh lưới mẫu gồm 64 ảnh (`sample_fashion_mnist.png` hoặc `sample_celeba.png`) vào thư mục gốc để kiểm tra trực quan.*
 
 ### 2. Sử dụng trong code huấn luyện của từng thành viên:
 
 ```python
-from dataloader import get_dataloaders, denormalize
+from data.dataloader import get_dataloaders, denormalize
 
 # 1. Lấy DataLoaders chuẩn cho huấn luyện CelebA:
 train_loader, val_loader, test_loader = get_dataloaders(
@@ -104,7 +104,8 @@ DL_ImgGenModel/
 ├── configs/
 │   └── default.yaml           # File cấu hình hyperparameters chung (CelebA / Fashion-MNIST)
 ├── data/                      # Thư mục dữ liệu & DataLoader (bỏ qua dữ liệu thô trong .gitignore)
-│   ├── raw/                   # Chứa FashionMNIST/ và celeba/ (img_align_celeba/) tự động tải về
+│   ├── celeba/                # CelebA, tự động chia sẵn train/ val/ test/
+│   ├── FashionMNIST/          # Fashion-MNIST (torchvision tự tải)
 │   ├── __init__.py
 │   └── dataloader.py          # Module DataLoader dùng chung cho cả 3 mô hình (Thành viên 1)
 ├── models/                    # Kiến trúc 3 mô hình sinh ảnh

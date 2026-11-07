@@ -4,8 +4,8 @@ __pycache__/
 *$py.class
 
 # Data & Large datasets
-data/raw/*
-!data/raw/.gitkeep
+data/celeba/
+data/FashionMNIST/
 *.zip
 *.tar
 *.tar.gz
