@@ -1,6 +1,6 @@
 """
 models/vae/train.py - Script huấn luyện độc lập cho mô hình VAE.
-Phụ trách: Thành viên 1 (Nhánh VAE + Dữ liệu & Overleaf).
+Phụ trách: Thành viên Nhánh VAE + Dữ liệu & Overleaf
 
 Cách chạy từ thư mục gốc của project:
     python models/vae/train.py --dataset fashion_mnist --epochs 5 --batch-size 128 --backend tensorboard
@@ -47,6 +47,8 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=5e-4, help="Tốc độ học (Learning rate cho Adam)")
     parser.add_argument("--latent-dim", type=int, default=128, help="Số chiều của vector tiềm ẩn z")
     parser.add_argument("--kl-weight", type=float, default=1.0, help="Hệ số beta cho KL Divergence (beta-VAE)")
+    parser.add_argument("--kl-warmup-epochs", type=int, default=10,
+                        help="Số epoch tăng tuyến tính KL weight đến --kl-weight (0 = tắt warm-up)")
     parser.add_argument("--seed", type=int, default=42, help="Seed cố định tính ngẫu nhiên")
 
     # Logging & Checkpoints
@@ -69,6 +71,12 @@ def train_one_epoch(model, dataloader, optimizer, device, epoch, step, logger, a
     model.train()
     total_loss, total_recon, total_kl = 0.0, 0.0, 0.0
     num_batches = len(dataloader)
+    warmup_ratio = (
+        1.0
+        if args.kl_warmup_epochs == 0
+        else min(1.0, epoch / args.kl_warmup_epochs)
+    )
+    effective_kl_weight = args.kl_weight * warmup_ratio
 
     t0 = time.time()
     for batch_idx, batch in enumerate(dataloader):
@@ -80,8 +88,14 @@ def train_one_epoch(model, dataloader, optimizer, device, epoch, step, logger, a
         # Forward pass qua VAE: x -> Encoder -> (mu, logvar) -> Reparameterize -> Decoder -> recon_x
         recon_images, mu, logvar = model(images)
 
-        # Tính hàm mục tiêu ELBO: Recon Loss (MSE) + beta * KL Divergence
-        loss_dict = model.loss_function(recon_images, images, mu, logvar, kl_weight=args.kl_weight)
+        # Tăng dần beta trong các epoch đầu để posterior học ổn định hơn.
+        loss_dict = model.loss_function(
+            recon_images,
+            images,
+            mu,
+            logvar,
+            kl_weight=effective_kl_weight,
+        )
         loss = loss_dict["loss"]
 
         # Lan truyền ngược (Backpropagation)
@@ -101,7 +115,9 @@ def train_one_epoch(model, dataloader, optimizer, device, epoch, step, logger, a
             metrics = {
                 "train/loss": loss.item(),
                 "train/recon_loss": loss_dict["recon_loss"].item(),
+                "train/recon_mse": loss_dict["recon_mse"].item(),
                 "train/kl_loss": loss_dict["kl_loss"].item(),
+                "train/kl_weight": effective_kl_weight,
                 "train/lr": optimizer.param_groups[0]["lr"],
             }
             logger.log_scalars(metrics, step=step)
@@ -110,7 +126,8 @@ def train_one_epoch(model, dataloader, optimizer, device, epoch, step, logger, a
         if (batch_idx + 1) % max(1, num_batches // 5) == 0 or (batch_idx + 1) == num_batches:
             elapsed = time.time() - t0
             print(f"Epoch [{epoch}/{args.epochs}] | Batch [{batch_idx + 1}/{num_batches}] | "
-                  f"Loss: {loss.item():.2f} (Recon: {loss_dict['recon_loss'].item():.2f}, KL: {loss_dict['kl_loss'].item():.2f}) | "
+                  f"Loss: {loss.item():.2f} (Recon: {loss_dict['recon_loss'].item():.2f}, "
+                  f"KL: {loss_dict['kl_loss'].item():.2f}, beta: {effective_kl_weight:.3f}) | "
                   f"Thời gian: {elapsed:.1f}s")
 
     avg_loss = total_loss / max(1, num_batches)
@@ -147,6 +164,10 @@ def evaluate(model, dataloader, device, args):
 
 def main():
     args = parse_args()
+    if args.kl_weight < 0:
+        raise ValueError("kl_weight phải >= 0")
+    if args.kl_warmup_epochs < 0:
+        raise ValueError("kl_warmup_epochs phải >= 0")
     set_seed(args.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -159,6 +180,7 @@ def main():
         root=args.data_root,
         batch_size=args.batch_size,
         subset=args.subset,
+        seed=args.seed,
     )
     print(f"[+] Dữ liệu sẵn sàng: {len(train_loader)} batches train | {len(val_loader)} batches val")
 

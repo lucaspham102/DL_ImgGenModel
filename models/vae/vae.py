@@ -81,6 +81,11 @@ class ConvEncoder(nn.Module):
         self.fc_logvar = nn.Linear(256 * 4 * 4, latent_dim)
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        if x.ndim != 4 or x.shape[1:] != (self.in_channels, 64, 64):
+            raise ValueError(
+                "ConvEncoder yêu cầu đầu vào có dạng "
+                f"(B, {self.in_channels}, 64, 64), nhận được {tuple(x.shape)}."
+            )
         h = self.conv(x)
         h = torch.flatten(h, start_dim=1)
         mu = self.fc_mu(h)
@@ -152,8 +157,15 @@ class VAE(nn.Module):
         - evaluate.py: Cung cấp phương thức sample(num_samples, device).
     """
 
+    LOGVAR_MIN = -20.0
+    LOGVAR_MAX = 10.0
+
     def __init__(self, in_channels: int = 3, latent_dim: int = 128) -> None:
         super().__init__()
+        if in_channels < 1:
+            raise ValueError("in_channels phải >= 1")
+        if latent_dim < 1:
+            raise ValueError("latent_dim phải >= 1")
         self.in_channels = in_channels
         self.latent_dim = latent_dim
 
@@ -162,7 +174,10 @@ class VAE(nn.Module):
 
     def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Trích xuất tham số phân phối tiềm ẩn (mu, logvar) từ ảnh đầu vào."""
-        return self.encoder(x)
+        mu, logvar = self.encoder(x)
+        # Giữ exp(logvar) trong miền hữu hạn, kể cả khi dùng mixed precision.
+        logvar = logvar.clamp(self.LOGVAR_MIN, self.LOGVAR_MAX)
+        return mu, logvar
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         """Tái tạo ảnh từ vector tiềm ẩn z."""
@@ -179,12 +194,10 @@ class VAE(nn.Module):
         
         Cho phép gradient truyền ngược từ z về mu và logvar.
         """
-        if self.training:
-            std = torch.exp(0.5 * logvar)
-            eps = torch.randn_like(std)
-            return mu + eps * std
-        # Khi đánh giá / suy luận cố định, có thể sử dụng kỳ vọng mu để tái tạo sắc nét
-        return mu
+        logvar = logvar.clamp(self.LOGVAR_MIN, self.LOGVAR_MAX)
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -213,9 +226,9 @@ class VAE(nn.Module):
 
         Công thức:
             Loss = Reconstruction_Loss + kl_weight * KL_Divergence
-            - Reconstruction_Loss: Sai số bình phương trung bình (MSE) giữa ảnh gốc và ảnh tái tạo.
-              Tính tổng trên không gian pixel và trung bình theo batch:
-              MSE = sum((recon_x - x)^2) / B
+            - Reconstruction_Loss: Tổng sai số bình phương trên các pixel,
+              sau đó trung bình theo batch:
+              SSE_per_image = sum((recon_x - x)^2) / B
             - KL_Divergence:
               D_KL = -0.5 * sum(1 + logvar - mu^2 - exp(logvar)) / B
 
@@ -229,15 +242,20 @@ class VAE(nn.Module):
         Returns:
             Dict[str, torch.Tensor]:
                 - "loss": Tổng loss dùng trực tiếp cho loss.backward().
-                - "recon_loss": Thành phần sai số tái tạo (MSE).
+                - "recon_loss": Tổng sai số bình phương trung bình theo ảnh,
+                  dùng trong mục tiêu ELBO.
+                - "recon_mse": MSE trung bình trên batch, kênh và pixel,
+                  dùng để theo dõi với thang đo không phụ thuộc kích thước ảnh.
                 - "kl_loss": Thành phần phân kỳ Kullback-Leibler.
         """
         batch_size = x.size(0)
 
-        # 1. Reconstruction Loss: Tổng sai số pixel của mỗi ảnh, trung bình theo batch
+        # Tổng theo pixel để giữ đúng tỷ lệ của log-likelihood trong ELBO.
         recon_loss = F.mse_loss(recon_x, x, reduction="sum") / batch_size
+        recon_mse = F.mse_loss(recon_x, x, reduction="mean")
 
         # 2. KL Divergence: D_KL(q(z|x) || N(0, I)) theo công thức giải tích đóng của Kingma & Welling (2013)
+        logvar = logvar.clamp(VAE.LOGVAR_MIN, VAE.LOGVAR_MAX)
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / batch_size
 
         total_loss = recon_loss + kl_weight * kl_loss
@@ -245,6 +263,7 @@ class VAE(nn.Module):
         return {
             "loss": total_loss,
             "recon_loss": recon_loss,
+            "recon_mse": recon_mse,
             "kl_loss": kl_loss,
         }
 
@@ -261,11 +280,15 @@ class VAE(nn.Module):
         Returns:
             torch.Tensor: Tensor ảnh sinh (num_samples, C, H, W) trong miền [-1, 1].
         """
-        self.eval()
-        if device is None:
-            device = next(self.parameters()).device
-        z = torch.randn(num_samples, self.latent_dim, device=device)
-        return self.decode(z)
+        was_training = self.training
+        try:
+            self.eval()
+            if device is None:
+                device = next(self.parameters()).device
+            z = torch.randn(num_samples, self.latent_dim, device=device)
+            return self.decode(z)
+        finally:
+            self.train(was_training)
 
     @torch.no_grad()
     def reconstruct(self, x: torch.Tensor) -> torch.Tensor:
@@ -273,9 +296,13 @@ class VAE(nn.Module):
         Tái tạo ảnh từ ảnh đầu vào bằng kỳ vọng mu (deterministic reconstruction),
         phục vụ việc trực quan hóa chất lượng mô hình hoặc log ảnh qua logger.
         """
-        self.eval()
-        mu, _ = self.encode(x)
-        return self.decode(mu)
+        was_training = self.training
+        try:
+            self.eval()
+            mu, _ = self.encode(x)
+            return self.decode(mu)
+        finally:
+            self.train(was_training)
 
 
 if __name__ == "__main__":
@@ -313,9 +340,10 @@ if __name__ == "__main__":
                 all_grads_ok = False
                 print(f"[!] Lỗi gradient tại: {name}")
                 break
-    print(f"[+] Kiểm tra Autograd backward: {'HOÀN HẢO (100% tham số có gradient hợp lệ)' if all_grads_ok else 'LỖI'}")
+    print(f"[+] Kiểm tra Autograd backward: {'ĐẠT (các gradient đều hữu hạn)' if all_grads_ok else 'LỖI'}")
     print(f"    - Total Loss      : {total_loss.item():.4f}")
-    print(f"    - Recon Loss (MSE): {loss_dict['recon_loss'].item():.4f}")
+    print(f"    - Recon Loss (SSE/ảnh): {loss_dict['recon_loss'].item():.4f}")
+    print(f"    - Recon MSE            : {loss_dict['recon_mse'].item():.6f}")
     print(f"    - KL Divergence   : {loss_dict['kl_loss'].item():.4f}")
 
     # 3. Kiểm tra hàm sample() cho evaluate.py

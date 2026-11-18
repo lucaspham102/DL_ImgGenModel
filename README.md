@@ -50,7 +50,7 @@ Dự án thiết kế một pipeline nạp dữ liệu dùng chung duy nhất t�
 - **Hàm phục hồi ảnh `denormalize(x)` / `to_01(x)`:** Chuyển tensor từ $[-1, 1] \rightarrow [0, 1]$ phục vụ việc lưu ảnh ra đĩa (`save_image`), trực quan hóa Matplotlib hoặc tính điểm FID.
 
 ### 3. Tối ưu hệ điều hành & Multi-processing:
-- Mặc định `num_workers=0` trên Windows để chống lỗi nghẽn deadlock của `multiprocessing spawn`, tự động đặt `2` trên Linux/macOS.
+- Mặc định `num_workers=0` trên Windows và tối đa `4` trên các hệ điều hành khác, tùy số CPU. Khi đặt `num_workers > 0`, DataLoader giữ worker qua các epoch.
 - Tự động kích hoạt `pin_memory=True` khi phát hiện GPU CUDA.
 
 ---
@@ -86,7 +86,7 @@ train_loader, val_loader, test_loader = get_dataloaders(
 # 2. Sanity Check nhanh trên Fashion-MNIST:
 train_loader, val_loader, test_loader = get_dataloaders("fashion_mnist")
 
-# 3. Chạy thử nghiệm nhanh (chỉ lấy 2000 ảnh đầu để debug luồng train):
+# 3. Chạy thử nghiệm nhanh với tối đa 2000 ảnh train chọn ngẫu nhiên:
 train_loader, _, _ = get_dataloaders("celeba", subset=2000)
 
 # 4. Khi lưu ảnh dự đoán / tái tạo của mô hình:
@@ -94,6 +94,9 @@ train_loader, _, _ = get_dataloaders("celeba", subset=2000)
 from torchvision.utils import save_image
 save_image(denormalize(reconstructed[:64]), "epoch_1_sample.png", nrow=8)
 ```
+
+Để chạy thử với bản CelebA chưa đủ ảnh, truyền thêm `strict_celeba_counts=False`.
+Các tập vẫn lấy ảnh theo metadata. Tập validation hoặc test có thể rỗng nếu thiếu ảnh.
 
 ---
 
