@@ -209,6 +209,16 @@ def main():
             global_step = info["step"]
             if info.get("extra") and "best_val_loss" in info["extra"]:
                 best_val_loss = info["extra"]["best_val_loss"]
+            # Bản cũ ghi last trước best. Nếu cả hai thuộc cùng epoch/step,
+            # best có điểm của epoch vừa hoàn tất còn last có thể chậm một epoch.
+            last_name = f"vae_{args.dataset}_last.pt"
+            paired_best = os.path.join(os.path.dirname(args.resume), f"vae_{args.dataset}_best.pt")
+            if os.path.basename(args.resume) == last_name and os.path.isfile(paired_best):
+                best_info = load_checkpoint(paired_best, models={}, restore_rng=False)
+                if (best_info["epoch"], best_info["step"]) == (info["epoch"], info["step"]):
+                    paired_loss = (best_info.get("extra") or {}).get("best_val_loss")
+                    if paired_loss is not None:
+                        best_val_loss = min(best_val_loss, paired_loss)
             print(f"[+] Khôi phục thành công! Bắt đầu từ epoch {start_epoch}, step {global_step} (Best val loss: {best_val_loss:.2f})")
         else:
             print(f"[!] Cảnh báo: File '{args.resume}' không tồn tại. Bắt đầu huấn luyện mới.")
@@ -282,10 +292,10 @@ def main():
                 logger.log_image_grid(gen_samples, step=epoch, tag="epoch/samples_generated", value_range=(-1, 1))
                 logger.log_image_grid(recon_samples, step=epoch, tag="epoch/reconstructed", value_range=(-1, 1))
 
-            # Lưu checkpoint last (cho từng epoch)
-            last_ckpt_path = os.path.join(args.ckpt_dir, f"vae_{args.dataset}_last.pt")
-            save_checkpoint(
-                path=last_ckpt_path,
+            improved = val_loss < best_val_loss
+            if improved:
+                best_val_loss = val_loss
+            checkpoint_args = dict(
                 models={"vae": model},
                 optimizers={"vae": optimizer},
                 schedulers={"vae": scheduler},
@@ -295,21 +305,12 @@ def main():
                 extra={"best_val_loss": best_val_loss, "fixed_noise": fixed_noise.cpu()},
             )
 
-            # Lưu checkpoint best (khi val loss thấp nhất)
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
+            if improved:
                 best_ckpt_path = os.path.join(args.ckpt_dir, f"vae_{args.dataset}_best.pt")
-                save_checkpoint(
-                    path=best_ckpt_path,
-                    models={"vae": model},
-                    optimizers={"vae": optimizer},
-                    schedulers={"vae": scheduler},
-                    epoch=epoch,
-                    step=global_step,
-                    config=vars(args),
-                    extra={"best_val_loss": best_val_loss, "fixed_noise": fixed_noise.cpu()},
-                )
+                save_checkpoint(path=best_ckpt_path, **checkpoint_args)
                 print(f"[*] Đã cập nhật Checkpoint tốt nhất: {best_ckpt_path} (Val Loss: {best_val_loss:.2f})")
+            last_ckpt_path = os.path.join(args.ckpt_dir, f"vae_{args.dataset}_last.pt")
+            save_checkpoint(path=last_ckpt_path, **checkpoint_args)
 
     except KeyboardInterrupt:
         print("\n[!] Đã dừng huấn luyện theo yêu cầu. Checkpoint an toàn tại 'last.pt'.")
