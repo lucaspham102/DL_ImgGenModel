@@ -165,12 +165,14 @@ Các tùy chọn khác: `--model {vae,dcgan,ddpm}`, `--ckpt <path>`, `--batch-si
 
 ---
 
+## Chạy smoke test
+
+Từ thư mục gốc, chạy `python smoke_test.py`. Trên Colab, chạy `!python smoke_test.py` từ thư mục repo. Test tạo ảnh CelebA và dữ liệu IDX Fashion-MNIST nhỏ trong thư mục tạm, chạy VAE qua train, resume, evaluate và kiểm tra file kết quả. Mặc định dùng TensorBoard cục bộ. Chạy `python smoke_test.py --full-metrics` để kiểm tra thêm FID và LPIPS với trọng số pretrained.
+
 ## 📁 Cấu Trúc Thư Mục Dự Án
 
 ```text
 DL_ImgGenModel/
-├── configs/
-│   └── default.yaml           # File cấu hình hyperparameters chung (CelebA / Fashion-MNIST)
 ├── data/                      # Dữ liệu & DataLoader (dữ liệu bị bỏ qua trong .gitignore)
 │   ├── celeba/                # CelebA đã chia sẵn: train/ val/ test/
 │   ├── FashionMNIST/          # Fashion-MNIST (torchvision tự tải)
@@ -178,18 +180,18 @@ DL_ImgGenModel/
 │   └── dataloader.py          # Module DataLoader dùng chung cho cả 3 mô hình
 ├── models/                    # Kiến trúc 3 mô hình sinh ảnh
 │   ├── __init__.py
-│   ├── vae.py                 # Variational Autoencoder
-│   ├── dcgan.py               # Deep Convolutional GAN
-│   └── ddpm.py                # Denoising Diffusion Probabilistic Models nhỏ
+│   ├── vae/                   # vae.py và train.py cho Variational Autoencoder
+│   ├── dcgan/                 # Phần dành cho DCGAN trong lộ trình
+│   └── ddpm/                  # Phần dành cho DDPM trong lộ trình
 ├── utils/                     # Các module tiện ích và đánh giá dùng chung
 │   ├── __init__.py
 │   ├── logger.py              # Logging W&B / TensorBoard, lưu checkpoint & xuất lưới ảnh
 │   └── evaluation.py          # Tính FID, đo tốc độ sinh ảnh và đánh giá độ đa dạng
 ├── checkpoints/               # Lưu trọng số mô hình đã huấn luyện (.pt / .pth)
 ├── outputs/                   # Ảnh sinh mẫu (samples/) và kết quả đánh giá (.json)
-├── train.py                   # Script huấn luyện chính cho cả 3 mô hình
+├── train_colab.ipynb          # Huấn luyện VAE trên Colab
 ├── evaluate.py                # Script chạy pipeline đánh giá độc lập
-├── smoke_test.py              # Script kiểm tra nhanh luồng logging / huấn luyện
+├── smoke_test.py              # Smoke test dữ liệu, VAE, checkpoint, logging và đánh giá
 ├── LOGGING.md                 # Hướng dẫn logging (W&B / TensorBoard)
 ├── requirements.txt           # Danh sách các thư viện phụ thuộc
 ├── .gitignore                 # Bỏ qua data nặng, checkpoints, wandb, cache và file rác

@@ -72,7 +72,9 @@ class Logger:
                                 normalize=True, value_range=value_range)  # (3, H, W) trong [0, 1]
 
         if save_local:
-            vutils.save_image(grid, os.path.join(self.sample_dir, f"{tag}_{step:07d}.png"))
+            image_path = os.path.join(self.sample_dir, f"{tag}_{step:07d}.png")
+            os.makedirs(os.path.dirname(image_path), exist_ok=True)
+            vutils.save_image(grid, image_path)
 
         if self.backend == "wandb":
             self.wandb.log({tag: self.wandb.Image(grid.permute(1, 2, 0).numpy())}, step=step)

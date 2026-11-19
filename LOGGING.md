@@ -50,9 +50,9 @@ python smoke_test.py --backend wandb --project DL_ImageGenModel --entity 2402236
 
 Kết quả đúng:
 
-- Dòng đầu in `Device: cuda (...)` nếu có GPU (`cpu` nếu không).
-- Có link `wandb.ai/.../runs/...` để xem run.
-- Dòng cuối: `Checkpoint round-trip: OK`.
+- Dòng đầu hiển thị phiên bản PyTorch và thiết bị.
+- Khi chọn W&B, run có tên `smoke-test` trong project đã chọn.
+- Bộ test in kết quả từng phép kiểm tra rồi báo `OK` khi tất cả đều đạt.
 
 Script dùng dữ liệu ngẫu nhiên nên ảnh sinh ra chỉ là nhiễu — đó là bình thường.
 
