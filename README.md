@@ -100,6 +100,17 @@ Các tập vẫn lấy ảnh theo metadata. Tập validation hoặc test có th�
 
 ---
 
+### Huấn luyện VAE trên máy và Colab
+
+**Local.** Từ thư mục gốc project, chạy `python models/vae/train.py`. Script tự chọn CUDA nếu có, dùng CPU khi cần, ghi log ra terminal và lưu checkpoint trong `outputs/checkpoints/`. Để kiểm tra nhanh, chạy `python models/vae/train.py --dataset fashion_mnist --subset 2000 --epochs 5 --ckpt-dir outputs/checkpoints/sanity_local`.
+
+**Colab Extension.** Mở `train_colab.ipynb`, chọn kernel Colab GPU rồi chạy phần thiết lập và cell cấu hình chung. Cell 6 và 7 gọi chính `models/vae/train.py`. Mỗi epoch hiển thị Train/Val Loss, Recon và KL. Khi hoàn tất, notebook hiển thị bảng, biểu đồ và ảnh mẫu rồi ghi ZIP gồm hai checkpoint, log, CSV, biểu đồ và hai lưới ảnh.
+
+Mở `My Drive/DL_ImgGenModel_storage/checkpoints/` trong Google Drive để tải ZIP về máy.
+
+- Cell 6 (Fashion-MNIST, 2.000 ảnh train, 5 epoch): `sanity_local/vae_sanity_fashion_mnist.zip`.
+- Cell 7 (toàn bộ tập train): `vae_train_<dataset>.zip`.
+
 ## 📈 Pipeline Đánh Giá (`utils/evaluation.py` & `evaluate.py`)
 
 Một pipeline đánh giá duy nhất dùng chung cho cả 3 mô hình (VAE, DCGAN, DDPM), gồm 3 nhóm chỉ số:

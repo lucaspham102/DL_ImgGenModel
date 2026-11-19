@@ -3,6 +3,7 @@ models/vae/train.py - Script huấn luyện độc lập cho mô hình VAE.
 Phụ trách: Thành viên Nhánh VAE + Dữ liệu & Overleaf
 
 Cách chạy từ thư mục gốc của project:
+    python models/vae/train.py
     python models/vae/train.py --dataset fashion_mnist --epochs 5 --batch-size 128 --backend tensorboard
     python models/vae/train.py --dataset celeba --epochs 30 --batch-size 128 --backend wandb
 
@@ -52,13 +53,13 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42, help="Seed cố định tính ngẫu nhiên")
 
     # Logging & Checkpoints
-    parser.add_argument("--backend", type=str, default="wandb", choices=["wandb", "tensorboard", "none"],
+    parser.add_argument("--backend", type=str, default="none", choices=["wandb", "tensorboard", "none"],
                         help="Backend ghi log")
     parser.add_argument("--project", type=str, default="DL_ImageGenModel", help="Tên project W&B")
     parser.add_argument("--entity", type=str, default="24022367-vietnam-national-university-hanoi", help="Tên team W&B")
     parser.add_argument("--run-name", type=str, default=None, help="Tên run hiển thị trên W&B")
     parser.add_argument("--log-interval", type=int, default=50, help="Chu kỳ ghi log metric theo step")
-    parser.add_argument("--ckpt-dir", type=str, default=os.path.join(PROJECT_ROOT, "checkpoints"),
+    parser.add_argument("--ckpt-dir", type=str, default=os.path.join(PROJECT_ROOT, "outputs", "checkpoints"),
                         help="Thư mục lưu các file checkpoint .pt")
     parser.add_argument("--resume", type=str, default=None,
                         help="Đường dẫn tới file checkpoint .pt để train tiếp khi Colab bị ngắt")
