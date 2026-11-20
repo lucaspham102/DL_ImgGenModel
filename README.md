@@ -50,7 +50,7 @@ Dự án thiết kế một pipeline nạp dữ liệu dùng chung duy nhất t�
 - **Hàm phục hồi ảnh `denormalize(x)` / `to_01(x)`:** Chuyển tensor từ $[-1, 1] \rightarrow [0, 1]$ phục vụ việc lưu ảnh ra đĩa (`save_image`), trực quan hóa Matplotlib hoặc tính điểm FID.
 
 ### 3. Tối ưu hệ điều hành & Multi-processing:
-- Mặc định `num_workers=0` trên Windows để chống lỗi nghẽn deadlock của `multiprocessing spawn`, tự động đặt `2` trên Linux/macOS.
+- Mặc định `num_workers=0` trên Windows và tối đa `4` trên các hệ điều hành khác, tùy số CPU. Khi đặt `num_workers > 0`, DataLoader giữ worker qua các epoch.
 - Tự động kích hoạt `pin_memory=True` khi phát hiện GPU CUDA.
 
 ---
@@ -86,7 +86,7 @@ train_loader, val_loader, test_loader = get_dataloaders(
 # 2. Sanity Check nhanh trên Fashion-MNIST:
 train_loader, val_loader, test_loader = get_dataloaders("fashion_mnist")
 
-# 3. Chạy thử nghiệm nhanh (chỉ lấy 2000 ảnh đầu để debug luồng train):
+# 3. Chạy thử nghiệm nhanh với tối đa 2000 ảnh train chọn ngẫu nhiên:
 train_loader, _, _ = get_dataloaders("celeba", subset=2000)
 
 # 4. Khi lưu ảnh dự đoán / tái tạo của mô hình:
@@ -95,7 +95,21 @@ from torchvision.utils import save_image
 save_image(denormalize(reconstructed[:64]), "epoch_1_sample.png", nrow=8)
 ```
 
+Để chạy thử với bản CelebA chưa đủ ảnh, truyền thêm `strict_celeba_counts=False`.
+Các tập vẫn lấy ảnh theo metadata. Tập validation hoặc test có thể rỗng nếu thiếu ảnh.
+
 ---
+
+### Huấn luyện VAE trên máy và Colab
+
+**Local.** Từ thư mục gốc project, chạy `python models/vae/train.py`. Script tự chọn CUDA nếu có, dùng CPU khi cần, ghi log ra terminal và lưu checkpoint trong `outputs/checkpoints/`. Để kiểm tra nhanh, chạy `python models/vae/train.py --dataset fashion_mnist --subset 2000 --epochs 5 --ckpt-dir outputs/checkpoints/sanity_local`.
+
+**Colab Extension.** Mở `train_colab.ipynb`, chọn kernel Colab GPU rồi chạy phần thiết lập và cell cấu hình chung. Cell 6 và 7 gọi chính `models/vae/train.py`. Mỗi epoch hiển thị Train/Val Loss, Recon và KL. Khi hoàn tất, notebook hiển thị bảng, biểu đồ và ảnh mẫu rồi ghi ZIP gồm hai checkpoint, log, CSV, biểu đồ và hai lưới ảnh.
+
+Mở `My Drive/DL_ImgGenModel_storage/checkpoints/` trong Google Drive để tải ZIP về máy.
+
+- Cell 6 (Fashion-MNIST, 2.000 ảnh train, 5 epoch): `sanity_local/vae_sanity_fashion_mnist.zip`.
+- Cell 7 (toàn bộ tập train): `vae_train_<dataset>.zip`.
 
 ## 📈 Pipeline Đánh Giá (`utils/evaluation.py` & `evaluate.py`)
 
@@ -151,12 +165,14 @@ Các tùy chọn khác: `--model {vae,dcgan,ddpm}`, `--ckpt <path>`, `--batch-si
 
 ---
 
+## Chạy smoke test
+
+Từ thư mục gốc, chạy `python smoke_test.py`. Trên Colab, chạy `!python smoke_test.py` từ thư mục repo. Test tạo ảnh CelebA và dữ liệu IDX Fashion-MNIST nhỏ trong thư mục tạm, chạy VAE qua train, resume, evaluate và kiểm tra file kết quả. Mặc định dùng TensorBoard cục bộ. Chạy `python smoke_test.py --full-metrics` để kiểm tra thêm FID và LPIPS với trọng số pretrained.
+
 ## 📁 Cấu Trúc Thư Mục Dự Án
 
 ```text
 DL_ImgGenModel/
-├── configs/
-│   └── default.yaml           # File cấu hình hyperparameters chung (CelebA / Fashion-MNIST)
 ├── data/                      # Dữ liệu & DataLoader (dữ liệu bị bỏ qua trong .gitignore)
 │   ├── celeba/                # CelebA đã chia sẵn: train/ val/ test/
 │   ├── FashionMNIST/          # Fashion-MNIST (torchvision tự tải)
@@ -164,18 +180,18 @@ DL_ImgGenModel/
 │   └── dataloader.py          # Module DataLoader dùng chung cho cả 3 mô hình
 ├── models/                    # Kiến trúc 3 mô hình sinh ảnh
 │   ├── __init__.py
-│   ├── vae.py                 # Variational Autoencoder
-│   ├── dcgan.py               # Deep Convolutional GAN
-│   └── ddpm.py                # Denoising Diffusion Probabilistic Models nhỏ
+│   ├── vae/                   # vae.py và train.py cho Variational Autoencoder
+│   ├── dcgan/                 # Phần dành cho DCGAN trong lộ trình
+│   └── ddpm/                  # Phần dành cho DDPM trong lộ trình
 ├── utils/                     # Các module tiện ích và đánh giá dùng chung
 │   ├── __init__.py
 │   ├── logger.py              # Logging W&B / TensorBoard, lưu checkpoint & xuất lưới ảnh
 │   └── evaluation.py          # Tính FID, đo tốc độ sinh ảnh và đánh giá độ đa dạng
 ├── checkpoints/               # Lưu trọng số mô hình đã huấn luyện (.pt / .pth)
 ├── outputs/                   # Ảnh sinh mẫu (samples/) và kết quả đánh giá (.json)
-├── train.py                   # Script huấn luyện chính cho cả 3 mô hình
+├── train_colab.ipynb          # Huấn luyện VAE trên Colab
 ├── evaluate.py                # Script chạy pipeline đánh giá độc lập
-├── smoke_test.py              # Script kiểm tra nhanh luồng logging / huấn luyện
+├── smoke_test.py              # Smoke test dữ liệu, VAE, checkpoint, logging và đánh giá
 ├── LOGGING.md                 # Hướng dẫn logging (W&B / TensorBoard)
 ├── requirements.txt           # Danh sách các thư viện phụ thuộc
 ├── .gitignore                 # Bỏ qua data nặng, checkpoints, wandb, cache và file rác

@@ -34,17 +34,27 @@ def main():
     # Tải test_loader từ data/dataloader.py của Thành viên 1
     _, _, test_loader = get_dataloaders(
         name=args.dataset,
-        root="./data/raw",
+        root="./data",
         batch_size=args.batch_size,
     )
 
     if args.test_dummy:
         # Bộ sinh giả lập trả về tensor (B, 3, 64, 64) trong miền [-1, 1] giống hệt mô hình thật
         sample_fn = lambda n, dev: torch.rand(n, 3, 64, 64, device=dev) * 2.0 - 1.0
-        model_label = f" dummy_{args.model}"
+        model_label = f"dummy_{args.model}"
+    elif args.model == "vae":
+        from models.vae import VAE
+        from utils.logger import load_checkpoint
+        model = VAE(in_channels=3, latent_dim=128).to(device)
+        if args.ckpt:
+            load_checkpoint(args.ckpt, models={"vae": model}, map_location=device)
+            print(f"[+] Đã nạp checkpoint VAE từ: {args.ckpt}")
+        model.eval()
+        sample_fn = model.sample
+        model_label = "vae"
     else:
         raise NotImplementedError(
-            "Khi các thành viên code xong VAE/DCGAN/DDPM, nạp checkpoint và gán `sample_fn = model.sample` tại đây."
+            f"Khi các thành viên code xong VAE,DCGAN,DDPM, nạp checkpoint và gán `sample_fn = model.sample` tại đây."
         )
 
     results = evaluate_model(
